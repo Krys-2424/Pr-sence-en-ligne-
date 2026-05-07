@@ -1,0 +1,2793 @@
+<!--
+SCSHOT : Site de révision "Présence en ligne" — fond noir profond, texte blanc cassé, accent vert terminal.
+Sidebar fixe à gauche avec sommaire 7 chapitres, contenu central largeur lecture (720px max),
+barre de progression, recherche, glossaire au survol, quiz de fin de chapitre, mode chunking.
+Palette : #0A0A0A / #F0F0F0 / #3DDC97 (accent) / #7FFF8F (highlight)
+Typos : IBM Plex Mono (titres) + IBM Plex Sans (body)
+Layout : aside fixe + main scroll, sections collapsibles, focus TDAH (chunks courts, scan rapide)
+-->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Présence en ligne — Révisions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================
+     RESET & VARIABLES
+     ============================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0A0A0A;
+    --bg-card: #111111;
+    --bg-card-2: #0F1A14;
+    --text: #F0F0F0;
+    --text-dim: #A8A8A8;
+    --text-faint: #666;
+    --accent: #3DDC97;
+    --accent-bright: #7FFF8F;
+    --accent-dim: #1F4A33;
+    --border: #1F1F1F;
+    --border-accent: #2A4A38;
+    --warn: #FFB347;
+    --danger: #FF6B6B;
+
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+
+    --sidebar-w: 320px;
+    --reading-w: 720px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    /* texture noise subtile pour casser le flat */
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(61, 220, 151, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(61, 220, 151, 0.02) 0%, transparent 50%);
+  }
+
+  /* Scrollbar customisée — discrète, verte au hover */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+
+  /* Sélection de texte */
+  ::selection { background: var(--accent); color: var(--bg); }
+
+  /* ============================================
+     PROGRESS BAR — top fixe, indicateur lecture
+     ============================================ */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+    width: 0%;
+    z-index: 1000;
+    transition: width 0.1s ease-out;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* ============================================
+     SIDEBAR — sommaire fixe
+     ============================================ */
+  aside.sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 32px 24px;
+    z-index: 100;
+  }
+
+  .sidebar-header {
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed var(--border-accent);
+  }
+
+  .sidebar-header .badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  .sidebar-header h1 {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .sidebar-header h1 span { color: var(--accent); }
+
+  .sidebar-header .subtitle {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-top: 6px;
+    font-family: var(--font-mono);
+  }
+
+  /* Recherche */
+  .search-box {
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .search-box input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px 10px 32px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border-radius: 4px;
+    transition: border-color 0.2s;
+  }
+  .search-box input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  .search-box::before {
+    content: "/";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  /* Nav chapitres */
+  nav.toc ol {
+    list-style: none;
+    counter-reset: chap;
+  }
+  nav.toc > ol > li {
+    counter-increment: chap;
+    margin-bottom: 4px;
+  }
+  nav.toc > ol > li > a {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 10px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border-radius: 4px;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  nav.toc > ol > li > a::before {
+    content: counter(chap, decimal-leading-zero);
+    color: var(--text-faint);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  nav.toc > ol > li > a:hover {
+    color: var(--text);
+    background: rgba(61, 220, 151, 0.06);
+    border-left-color: var(--accent-dim);
+  }
+  nav.toc > ol > li > a.active {
+    color: var(--accent);
+    background: rgba(61, 220, 151, 0.1);
+    border-left-color: var(--accent);
+  }
+  nav.toc > ol > li > a.active::before {
+    color: var(--accent);
+  }
+
+  /* Sous-sections (apparaissent quand chapitre actif) */
+  nav.toc ul.subsections {
+    list-style: none;
+    margin: 4px 0 8px 26px;
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+    display: none;
+  }
+  nav.toc > ol > li.expanded ul.subsections { display: block; }
+  nav.toc ul.subsections li a {
+    display: block;
+    padding: 4px 8px;
+    color: var(--text-faint);
+    text-decoration: none;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 3px;
+    transition: color 0.15s;
+  }
+  nav.toc ul.subsections li a:hover { color: var(--text-dim); }
+  nav.toc ul.subsections li a.active { color: var(--accent); }
+
+  .sidebar-footer {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--border-accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    line-height: 1.6;
+  }
+  .sidebar-footer .stat {
+    display: flex;
+    justify-content: space-between;
+    margin: 4px 0;
+  }
+  .sidebar-footer .stat span:last-child { color: var(--accent); }
+
+  /* ============================================
+     MAIN — contenu centré, largeur lecture
+     ============================================ */
+  main {
+    margin-left: var(--sidebar-w);
+    padding: 60px 60px 120px;
+    min-height: 100vh;
+  }
+
+  .reading-area {
+    max-width: var(--reading-w);
+    margin: 0 auto;
+  }
+
+  /* HERO accueil */
+  section.hero {
+    max-width: var(--reading-w);
+    margin: 0 auto 80px;
+    padding: 40px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero .label::before {
+    content: "";
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .hero h1 {
+    font-family: var(--font-mono);
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1.05;
+    margin-bottom: 24px;
+    letter-spacing: -0.02em;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero h1 .underline {
+    background: linear-gradient(transparent 60%, var(--accent-dim) 60%);
+    padding: 0 4px;
+  }
+
+  .hero .lead {
+    font-size: 19px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    max-width: 640px;
+    margin-bottom: 32px;
+  }
+
+  .hero .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .hero .quick-stats .stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+    border-radius: 6px;
+    transition: border-color 0.2s;
+  }
+  .hero .quick-stats .stat:hover {
+    border-color: var(--accent-dim);
+  }
+  .hero .quick-stats .stat .num {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .hero .quick-stats .stat .lbl {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 6px;
+    font-family: var(--font-mono);
+  }
+
+  .hero .tip {
+    background: var(--bg-card-2);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 0 4px 4px 0;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+  .hero .tip strong { color: var(--accent); font-family: var(--font-mono); font-weight: 600; }
+
+  /* CHAPITRES */
+  article.chapter {
+    margin-bottom: 100px;
+    scroll-margin-top: 24px;
+  }
+
+  .chapter-header {
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chapter-header .num {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .chapter-header h2 {
+    font-family: var(--font-mono);
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+
+  .chapter-header .summary {
+    font-size: 16px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    max-width: 600px;
+  }
+
+  /* Sections internes (collapsibles) */
+  section.section-block {
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    overflow: hidden;
+    transition: border-color 0.2s;
+    scroll-margin-top: 24px;
+  }
+  section.section-block:hover {
+    border-color: var(--border-accent);
+  }
+  section.section-block.collapsed .section-body {
+    display: none;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    cursor: pointer;
+    user-select: none;
+    background: linear-gradient(90deg, transparent, rgba(61, 220, 151, 0.02));
+  }
+  .section-head:hover h3 { color: var(--accent); }
+
+  .section-head h3 {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: color 0.15s;
+  }
+  .section-head h3::before {
+    content: "▸";
+    color: var(--accent);
+    font-size: 12px;
+    transition: transform 0.2s;
+  }
+  section.section-block:not(.collapsed) .section-head h3::before {
+    transform: rotate(90deg);
+  }
+
+  .section-head .toggle-hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .section-body {
+    padding: 4px 26px 28px;
+  }
+
+  .section-body p {
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  .section-body p + p { margin-top: 8px; }
+
+  .section-body strong, .section-body b {
+    color: var(--accent-bright);
+    font-weight: 600;
+  }
+
+  /* Listes */
+  .section-body ul, .section-body ol {
+    margin: 12px 0 18px 4px;
+    padding-left: 24px;
+  }
+  .section-body ul { list-style: none; }
+  .section-body ul li {
+    position: relative;
+    padding-left: 16px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .section-body ul li::before {
+    content: "›";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+  .section-body ol { list-style: decimal; }
+  .section-body ol li { margin-bottom: 8px; padding-left: 8px; }
+  .section-body ol li::marker { color: var(--accent); font-family: var(--font-mono); font-weight: 600; }
+
+  /* Listes imbriquées */
+  .section-body ul ul, .section-body ol ul, .section-body ul ol {
+    margin: 8px 0 8px 8px;
+  }
+
+  /* Termes-clés (glossaire) */
+  .term {
+    border-bottom: 1px dashed var(--accent-dim);
+    color: var(--accent-bright);
+    cursor: help;
+    position: relative;
+    font-weight: 500;
+  }
+  .term:hover { border-bottom-color: var(--accent); }
+  .term:hover::after {
+    content: attr(data-def);
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    width: 280px;
+    z-index: 10;
+    font-weight: 400;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Boîtes spéciales */
+  .callout {
+    margin: 20px 0;
+    padding: 16px 20px;
+    border-radius: 4px;
+    border-left: 3px solid;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .callout .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .callout.attention {
+    background: rgba(255, 179, 71, 0.06);
+    border-color: var(--warn);
+  }
+  .callout.attention .label { color: var(--warn); }
+  .callout.aide {
+    background: rgba(61, 220, 151, 0.06);
+    border-color: var(--accent);
+  }
+  .callout.aide .label { color: var(--accent); }
+  .callout.note {
+    background: rgba(255, 107, 107, 0.05);
+    border-color: var(--danger);
+  }
+  .callout.note .label { color: var(--danger); }
+
+  /* Boîte "À RETENIR" — récap clé en fin de section */
+  .keypoint {
+    margin: 24px 0;
+    background: var(--bg-card-2);
+    border: 1px solid var(--border-accent);
+    border-radius: 6px;
+    padding: 20px 24px;
+    position: relative;
+  }
+  .keypoint::before {
+    content: "★ À RETENIR";
+    position: absolute;
+    top: -10px;
+    left: 16px;
+    background: var(--bg);
+    padding: 0 10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+  }
+  .keypoint ul {
+    margin: 4px 0 0 0 !important;
+    padding-left: 20px !important;
+  }
+  .keypoint ul li {
+    margin-bottom: 6px !important;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* QUIZ */
+  .quiz {
+    margin-top: 50px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: 8px;
+    padding: 28px 30px;
+    position: relative;
+  }
+  .quiz-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed var(--border-accent);
+  }
+  .quiz-header .icon {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 14px;
+    background: var(--accent-dim);
+    padding: 4px 10px;
+    border-radius: 3px;
+    letter-spacing: 0.1em;
+  }
+  .quiz-header h4 {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .quiz-header .sub {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+
+  .quiz-question {
+    margin-bottom: 22px;
+  }
+  .quiz-question:last-child { margin-bottom: 0; }
+  .quiz-question .q {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .quiz-question .q::before {
+    content: "?";
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  .quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .quiz-options button {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    text-align: left;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .quiz-options button:hover {
+    border-color: var(--accent-dim);
+    background: rgba(61, 220, 151, 0.04);
+  }
+  .quiz-options button.correct {
+    border-color: var(--accent);
+    background: rgba(61, 220, 151, 0.1);
+    color: var(--accent-bright);
+  }
+  .quiz-options button.wrong {
+    border-color: var(--danger);
+    background: rgba(255, 107, 107, 0.08);
+    color: var(--danger);
+    text-decoration: line-through;
+  }
+  .quiz-options button:disabled { cursor: not-allowed; }
+  .quiz-feedback {
+    margin-top: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+    background: rgba(61, 220, 151, 0.05);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 3px 3px 0;
+    display: none;
+  }
+  .quiz-feedback.show { display: block; }
+
+  /* Résumé visuel — tableau de termes en haut de chapitre */
+  .key-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0 30px;
+  }
+  .key-terms .pill {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+  .key-terms .pill:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(61, 220, 151, 0.06);
+  }
+
+  /* Highlight de recherche */
+  .search-hit {
+    background: var(--accent-dim) !important;
+    color: var(--accent-bright) !important;
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+  .search-hidden { display: none !important; }
+
+  /* Mobile */
+  @media (max-width: 1100px) {
+    aside.sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.3s;
+    }
+    aside.sidebar.open { transform: translateX(0); }
+    main { margin-left: 0; padding: 70px 24px 80px; }
+    .hero h1 { font-size: 36px; }
+    .chapter-header h2 { font-size: 28px; }
+    .menu-toggle {
+      display: flex !important;
+    }
+  }
+
+  .menu-toggle {
+    display: none;
+    position: fixed;
+    top: 16px; left: 16px;
+    z-index: 200;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    color: var(--accent);
+    width: 44px; height: 44px;
+    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 18px;
+  }
+
+  /* Footer */
+  footer.site-footer {
+    max-width: var(--reading-w);
+    margin: 80px auto 0;
+    padding-top: 30px;
+    border-top: 1px dashed var(--border-accent);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.8;
+  }
+  footer.site-footer .accent { color: var(--accent); }
+
+  /* Bouton "back to top" */
+  #back-top {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    width: 44px; height: 44px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    color: var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 18px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s;
+    z-index: 50;
+  }
+  #back-top.visible { opacity: 1; transform: translateY(0); }
+  #back-top:hover { background: var(--accent-dim); }
+
+  /* Animation d'entrée subtile */
+  article.chapter {
+    animation: fadeInUp 0.5s ease-out backwards;
+  }
+  article.chapter:nth-child(1) { animation-delay: 0.05s; }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Progress bar de lecture -->
+<div id="progress-bar"></div>
+
+<!-- Toggle menu mobile -->
+<button class="menu-toggle" onclick="document.querySelector('aside.sidebar').classList.toggle('open')" aria-label="Menu">☰</button>
+
+<!-- ============================================
+     SIDEBAR — Sommaire des 7 chapitres
+     ============================================ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <span class="badge">CHAPITRE 5</span>
+    <h1>Présence <span>en ligne</span></h1>
+    <div class="subtitle">Cours de révision · 7 chapitres</div>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="search" placeholder="Rechercher un terme..." aria-label="Recherche">
+  </div>
+
+  <nav class="toc" aria-label="Sommaire">
+    <ol id="toc-list">
+      <li><a href="#ch1">Bases du SEM</a>
+        <ul class="subsections">
+          <li><a href="#ch1-def">Définition du DPL</a></li>
+          <li><a href="#ch1-webm">Webmarketing</a></li>
+          <li><a href="#ch1-obj">Objectifs</a></li>
+          <li><a href="#ch1-strat">Stratégie & USP</a></li>
+          <li><a href="#ch1-kpi">KPI</a></li>
+        </ul>
+      </li>
+      <li><a href="#ch2">Le référencement</a>
+        <ul class="subsections">
+          <li><a href="#ch2-intro">SEO vs SEA vs SMO</a></li>
+          <li><a href="#ch2-seo">SEO</a></li>
+          <li><a href="#ch2-mots">Mots-clés</a></li>
+          <li><a href="#ch2-sea">SEA</a></li>
+          <li><a href="#ch2-encheres">Enchères & CPC</a></li>
+        </ul>
+      </li>
+      <li><a href="#ch3">Référencement local</a>
+        <ul class="subsections">
+          <li><a href="#ch3-annu">Annuaires locaux</a></li>
+          <li><a href="#ch3-pub">Publicité locale</a></li>
+          <li><a href="#ch3-mob">Applications mobiles</a></li>
+          <li><a href="#ch3-seol">SEO local</a></li>
+        </ul>
+      </li>
+      <li><a href="#ch4">Site Web</a>
+        <ul class="subsections">
+          <li><a href="#ch4-dom">Nom de domaine</a></li>
+          <li><a href="#ch4-acc">Page d'accueil</a></li>
+          <li><a href="#ch4-erg">Ergonomie</a></li>
+          <li><a href="#ch4-nav">Navigation</a></li>
+          <li><a href="#ch4-cta">Call to action</a></li>
+          <li><a href="#ch4-dark">Dark Pattern</a></li>
+          <li><a href="#ch4-cont">Contenu</a></li>
+          <li><a href="#ch4-back">Backlink</a></li>
+        </ul>
+      </li>
+      <li><a href="#ch5">Réseaux sociaux</a>
+        <ul class="subsections">
+          <li><a href="#ch5-types">Types de médias</a></li>
+          <li><a href="#ch5-obj">Objectifs</a></li>
+          <li><a href="#ch5-plan">Plan SMO</a></li>
+          <li><a href="#ch5-mes">Mesurer</a></li>
+          <li><a href="#ch5-pieges">Pièges récurrents</a></li>
+        </ul>
+      </li>
+      <li><a href="#ch6">Marketing Mail</a>
+        <ul class="subsections">
+          <li><a href="#ch6-rgpd">RGPD</a></li>
+          <li><a href="#ch6-prep">Préparation</a></li>
+          <li><a href="#ch6-cont">Contenu</a></li>
+          <li><a href="#ch6-test">Test A/B</a></li>
+          <li><a href="#ch6-perf">Performance</a></li>
+        </ul>
+      </li>
+      <li><a href="#ch7">Droit à l'oubli</a>
+        <ul class="subsections">
+          <li><a href="#ch7-rgpd">RGPD & déréférencement</a></li>
+          <li><a href="#ch7-rech">Rechercher</a></li>
+          <li><a href="#ch7-agir">Agir</a></li>
+          <li><a href="#ch7-test">Tester</a></li>
+        </ul>
+      </li>
+    </ol>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="stat"><span>Chapitres</span><span>07</span></div>
+    <div class="stat"><span>Termes-clés</span><span>50+</span></div>
+    <div class="stat"><span>Quiz</span><span>21 Q</span></div>
+    <div class="stat"><span>Mode</span><span>focus</span></div>
+  </div>
+</aside>
+
+<!-- ============================================
+     MAIN CONTENT
+     ============================================ -->
+<main>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="label">Cours · Bloc 5</div>
+    <h1>Développer<br>la <span class="accent">présence</span> <span class="underline">en ligne</span></h1>
+    <p class="lead">
+      Tout ce qu'il faut savoir pour comprendre le SEM, le référencement, les sites web,
+      les réseaux sociaux, l'emailing et le droit à l'oubli — en mode <strong style="color:var(--accent)">révision rapide</strong>.
+    </p>
+
+    <div class="quick-stats">
+      <div class="stat"><div class="num">7</div><div class="lbl">Chapitres</div></div>
+      <div class="stat"><div class="num">30 min</div><div class="lbl">Lecture</div></div>
+      <div class="stat"><div class="num">21</div><div class="lbl">Questions quiz</div></div>
+    </div>
+
+    <div class="tip">
+      <strong>↳ Mode TDAH friendly</strong> · Sections courtes & repliables · termes-clés cliquables ·
+      survole les mots <span class="term" data-def="Tu vois ? Voilà comment ça marche : passe la souris sur un terme souligné et obtiens la définition instantanément.">soulignés</span>
+      pour leur définition · quiz en fin de chaque chapitre.
+    </div>
+  </section>
+
+  <div class="reading-area">
+
+  <!-- ============================================
+       CHAPITRE 1 — Bases du SEM
+       ============================================ -->
+  <article class="chapter" id="ch1">
+    <header class="chapter-header">
+      <div class="num">01 / 07</div>
+      <h2>Bases du SEM</h2>
+      <p class="summary">
+        Pourquoi être en ligne ? Qu'est-ce que le DPL, le webmarketing, les KPI et l'USP ?
+        Les fondations à poser avant tout le reste.
+      </p>
+      <div class="key-terms">
+        <span class="pill">DPL</span>
+        <span class="pill">Webmarketing</span>
+        <span class="pill">USP</span>
+        <span class="pill">KPI</span>
+        <span class="pill">See-Think-Do-Care</span>
+        <span class="pill">Showrooming</span>
+      </div>
+    </header>
+
+    <section class="section-block" id="ch1-def">
+      <div class="section-head">
+        <h3>Le contexte numérique</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Selon les statistiques (lesechos.fr 2019) : <strong>82,6 %</strong> des Français sont connectés, 43,8 millions utilisent internet quotidiennement, 55,6 % via smartphone et 29,1 % via tablette.</p>
+        <p>Ce taux de connexion énorme prouve que la <strong>communication digitale</strong> est un outil indispensable pour les entreprises qui veulent être visibles. C'est l'action de <strong>dématérialiser les supports de communication</strong>.</p>
+
+        <p><strong>Parts de marché des moteurs de recherche</strong> (monde) :</p>
+        <ul>
+          <li>Google : <strong>92,46 %</strong></li>
+          <li>Bing : 2,64 %</li>
+          <li>Yahoo! : 1,46 %</li>
+          <li>Baidu : 1,23 %</li>
+        </ul>
+
+        <div class="keypoint">
+          <ul>
+            <li>Développer la communication digitale = <strong>Développement de la Présence en Ligne (DPL)</strong></li>
+            <li>Google domine très largement — viser ce moteur en priorité</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch1-dpl">
+      <div class="section-head">
+        <h3>Qu'est-ce que le DPL ?</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Le <span class="term" data-def="DPL = Développement de la Présence en Ligne. Stratégie globale d'identité numérique d'une entreprise.">DPL</span> consiste à adopter la <strong>stratégie</strong> adaptée à votre <strong>transformation digitale</strong>.</p>
+
+        <p>Il englobe :</p>
+        <ul>
+          <li>Le web</li>
+          <li>Les réseaux sociaux</li>
+          <li>Les terminaux portables (smartphones, tablettes)</li>
+        </ul>
+
+        <p>Et fait intervenir d'autres canaux innovants :</p>
+        <ul>
+          <li>Chatbot, voicebot</li>
+          <li>Big data, blockchain</li>
+          <li>Réalité virtuelle</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch1-webm">
+      <div class="section-head">
+        <h3>Le Webmarketing</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Le <strong>webmarketing</strong> = utiliser Internet pour se faire connaître et/ou développer son activité. C'est la version numérique du marketing traditionnel.</p>
+
+        <p><strong>Il comprend :</strong></p>
+        <ul>
+          <li>Un site internet pertinent et actif (produits/services dès la page d'entrée)</li>
+          <li>Le référencement naturel</li>
+          <li>Une présence en ligne active</li>
+          <li>Du contenu reflétant votre savoir-faire</li>
+          <li>Des profils sur les réseaux sociaux ciblés</li>
+          <li>Des campagnes cross-canal avec planning éditorial</li>
+        </ul>
+
+        <p>Le webmarketing améliore le flux d'informations et fait de toi un acteur de ta <span class="term" data-def="E-réputation (ou personal branding) : la perception de toi/ta marque sur internet, façonnée par tes contenus + ce que les autres disent de toi.">e-réputation</span> ou <strong>personal branding</strong>.</p>
+
+        <p><strong>Quatre catégories du webmarketing :</strong></p>
+        <ol>
+          <li><strong>Webmarketing stratégique</strong> — analyse des attentes, veille, positionnement</li>
+          <li><strong>Création de trafic</strong> — SEO, pub en ligne, emailing, jeux-concours</li>
+          <li><strong>Analyse des performances</strong> — visibilité, trafic, ventes</li>
+          <li><strong>Fidélisation</strong> — animation, refonte, communauté, emailing</li>
+        </ol>
+
+        <div class="callout attention">
+          <span class="label">⚠ Attention</span>
+          DPL ≠ Webmarketing ! Le <strong>webmarketing vise une rentabilité sur une activité</strong>. Le <strong>DPL vise la diffusion et le façonnage d'une identité numérique</strong>.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch1-obj">
+      <div class="section-head">
+        <h3>L'objectif : être présent</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Pourquoi être présent sur Internet ? Pour que <strong>la cible sache que tu existes</strong>. Mais attention : il ne s'agit <strong>pas de crier partout</strong> sur le cyberespace au risque de te décrédibiliser.</p>
+
+        <p>La première action du DPL est <strong>d'identifier l'objectif</strong> de la stratégie. Demande-toi ce que tu dois proposer pour atteindre tes objectifs commerciaux/communications.</p>
+
+        <ul>
+          <li>Avoir une idée précise de ce que tu veux réaliser → définir efficacement les priorités</li>
+          <li>Rationaliser pour ne pas être dépassé par les événements</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch1-strat">
+      <div class="section-head">
+        <h3>Élaboration d'une stratégie</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Une bonne stratégie doit allier <strong>concepts de base stables</strong> et <strong>état d'esprit tourné vers l'avenir</strong> (innovations).</p>
+
+        <p><strong>Trois règles d'or :</strong></p>
+        <ol>
+          <li>Définir ce que tu attends d'Internet et fixer des <strong>objectifs réalistes</strong></li>
+          <li>Utiliser l'analyse d'audience pour mesurer ce qui fonctionne</li>
+          <li>Rester à jour, s'adapter aux évolutions du secteur</li>
+        </ol>
+
+        <div class="callout attention">
+          <span class="label">⚠ Attention</span>
+          Le site web est souvent la première chose qui vient à l'esprit, mais ce n'est pas forcément par-là qu'il faut commencer. L'important est de décider <strong>ce que tu veux que tes internautes puissent faire</strong>, puis de créer un espace pour ça.
+        </div>
+
+        <p><strong>Étapes d'élaboration stratégique :</strong></p>
+        <ol>
+          <li><strong>Définir clairement les objectifs</strong> — donne une direction</li>
+          <li><strong>Définir la vision de l'entreprise</strong> — la "mission" en une phrase</li>
+          <li><strong>Identifier l'</strong><span class="term" data-def="USP (Unique Selling Proposition) : ce qui te différencie de tes concurrents. Ex : si ton service client est exceptionnel, c'est ton USP.">USP</span> — argument unique de vente, ce qui te démarque</li>
+        </ol>
+
+        <p><strong>Exemples d'objectifs USP :</strong></p>
+        <ul>
+          <li><strong>Augmenter les ventes</strong> → générer plus de trafic vers le site (pub payante, contenu)</li>
+          <li><strong>Augmenter la notoriété</strong> → réseaux sociaux pour exprimer valeurs et personnalité</li>
+          <li><strong>Développer la liste mailing</strong> → indiquer clairement ce que les inscrits recevront (contenu exclusif, infos VIP)</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch1-kpi">
+      <div class="section-head">
+        <h3>Définir les objectifs (KPI)</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les <span class="term" data-def="KPI (Key Performance Indicators) : indicateurs chiffrés qui mesurent l'atteinte d'un objectif. Ex : taux de conversion, nombre de ventes, taux de clic.">KPI</span> = mesures quantifiables qui concentrent l'attention sur les chiffres importants pour atteindre les objectifs commerciaux.</p>
+
+        <p>Ils aident l'équipe à comprendre <strong>comment les progrès sont suivis et mesurés</strong>.</p>
+
+        <p><strong>Critères d'un bon KPI</strong> (méthode SMART) :</p>
+        <ul>
+          <li><strong>Spécifique</strong></li>
+          <li><strong>Mesurable</strong></li>
+          <li><strong>Réaliste</strong></li>
+          <li><strong>Pertinent</strong></li>
+          <li><strong>Limité dans le temps</strong></li>
+        </ul>
+
+        <p>Questions à se poser pour valider un KPI :</p>
+        <ul>
+          <li>Est-il suffisamment spécifique ?</li>
+          <li>Peut-il être mesuré ?</li>
+          <li>Tes employés peuvent-ils le réaliser ?</li>
+          <li>Quel impact sur l'objectif global ?</li>
+          <li>Quand doit-il être atteint ?</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch1-usp">
+      <div class="section-head">
+        <h3>Définir l'USP — comportement utilisateur</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>La segmentation de la clientèle</strong> aide à choisir où concentrer les efforts. Quatre étapes dans un processus d'achat, décrites par le framework <span class="term" data-def="See-Think-Do-Care : framework de Google qui découpe le parcours client en 4 étapes : voir (awareness), penser (consideration), agir (conversion), prendre soin (loyalty).">See-Think-Do-Care</span> :</p>
+        <ul>
+          <li><strong>See</strong> — voir (awareness)</li>
+          <li><strong>Think</strong> — penser, considérer</li>
+          <li><strong>Do</strong> — agir, acheter</li>
+          <li><strong>Care</strong> — prendre soin, fidéliser</li>
+        </ul>
+
+        <p>Quand l'étape "See" se passe en magasin physique, on appelle ça le <span class="term" data-def="Showrooming : aller voir un produit en magasin physique pour finalement l'acheter en ligne (souvent moins cher).">showrooming</span>.</p>
+
+        <p><strong>Point de contact</strong> = n'importe quelle étape où un visiteur entre en contact avec l'organisation. Outil efficace pour développer <strong>fidélité</strong> et <strong>confiance</strong>. Quand un client rencontre un point de contact à <strong>plusieurs reprises</strong> (ex : pub en ligne), cela crée une valeur importante et une relation durable avec la marque.</p>
+
+        <div class="keypoint">
+          <ul>
+            <li><strong>DPL = stratégie identité numérique</strong> (≠ rentabilité du webmarketing)</li>
+            <li><strong>Étapes</strong> : objectifs SMART → vision → USP → KPI</li>
+            <li><strong>Framework</strong> See-Think-Do-Care pour comprendre le parcours client</li>
+            <li>Un <strong>point de contact répété</strong> bâtit la confiance</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ chapitre 1 -->
+    <div class="quiz" data-quiz="1">
+      <div class="quiz-header">
+        <span class="icon">QUIZ</span>
+        <h4>Mini-quiz · Bases du SEM</h4>
+        <span class="sub">3 questions</span>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Que signifie "DPL" ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">Démarche de Profilage Légal</button>
+          <button data-correct="true">Développement de la Présence en Ligne</button>
+          <button data-correct="false">Diffusion Publicitaire en Ligne</button>
+        </div>
+        <div class="quiz-feedback">✓ Le DPL vise la diffusion et le façonnage d'une identité numérique.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Quelle est la différence principale entre DPL et webmarketing ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">Le DPL coûte plus cher</button>
+          <button data-correct="true">Le webmarketing vise la rentabilité, le DPL façonne l'identité numérique</button>
+          <button data-correct="false">Le webmarketing concerne uniquement les réseaux sociaux</button>
+        </div>
+        <div class="quiz-feedback">✓ Webmarketing = rentabilité sur une activité ; DPL = identité numérique.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Que représente l'acronyme "USP" ?</div>
+        <div class="quiz-options">
+          <button data-correct="true">Unique Selling Proposition (argument unique de vente)</button>
+          <button data-correct="false">User Service Page</button>
+          <button data-correct="false">Universal Site Performance</button>
+        </div>
+        <div class="quiz-feedback">✓ L'USP est ce qui te démarque de la concurrence.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================================
+       CHAPITRE 2 — Référencement
+       ============================================ -->
+  <article class="chapter" id="ch2">
+    <header class="chapter-header">
+      <div class="num">02 / 07</div>
+      <h2>Le référencement</h2>
+      <p class="summary">
+        SEO, SEA, SMO : trois piliers, trois logiques. Comprendre le SERP, le ranking,
+        les enchères, le CPC max et la longue traîne.
+      </p>
+      <div class="key-terms">
+        <span class="pill">SEM</span>
+        <span class="pill">SEO</span>
+        <span class="pill">SEA</span>
+        <span class="pill">SMO</span>
+        <span class="pill">SERP</span>
+        <span class="pill">Ranking</span>
+        <span class="pill">CPC max</span>
+        <span class="pill">Longue traîne</span>
+      </div>
+    </header>
+
+    <section class="section-block" id="ch2-intro">
+      <div class="section-head">
+        <h3>SEM, SEO, SEA, SMO — qui est qui ?</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Le <strong>référencement</strong> génère du trafic et influe sur le nombre de visiteurs. Le <span class="term" data-def="SEM (Search Engine Marketing) : terme parapluie qui regroupe l'ensemble des techniques d'optimisation du référencement (SEO + SEA).">SEM</span> (Search Engine Marketing) consiste en l'optimisation du référencement.</p>
+
+        <p><strong>Trois notions le composent :</strong></p>
+        <ul>
+          <li><span class="term" data-def="SEO (Search Engine Optimization) : référencement naturel, gratuit, à long terme. On améliore le site pour qu'il monte dans les résultats organiques.">SEO</span> — référencement naturel et son optimisation</li>
+          <li><span class="term" data-def="SEA (Search Engine Advertising) : référencement payant. On achète des emplacements publicitaires en haut des résultats via enchères sur mots-clés.">SEA</span> — référencement payant et son optimisation</li>
+          <li><span class="term" data-def="SMO (Social Media Optimization) : référencement social, optimisation de la présence sur les réseaux sociaux.">SMO</span> — référencement social et son optimisation</li>
+        </ul>
+
+        <p><strong>Référencement naturel</strong> : quand quelqu'un saisit des mots-clés, la page de résultats contient une liste de résultats <strong>naturels (non payants)</strong>, généralement au centre. Ce sont les meilleurs résultats selon le moteur. <strong>Impossible d'acheter sa place</strong> dans les résultats naturels.</p>
+
+        <p><strong>Référencement payant</strong> : mêmes mécaniques que le naturel, mais positionné en priorité moyennant finance.</p>
+
+        <p>Le <span class="term" data-def="SERP (Search Engine Results Page) : la page de résultats que le moteur affiche après une recherche.">SERP</span> = la page de résultats qu'un moteur affiche après une recherche, classée par pertinence et fiabilité.</p>
+
+        <p>Le <span class="term" data-def="Ranking : ta position dans les résultats des moteurs de recherche. Plus c'est haut, mieux c'est.">ranking</span> = la position dans les résultats des moteurs de recherche.</p>
+
+        <div class="keypoint">
+          <ul>
+            <li><strong>3 piliers du SEM</strong> : structure technique du site · contenu · popularité</li>
+            <li><strong>SEO</strong> = long terme, gratuit, organique</li>
+            <li><strong>SEA</strong> = court terme, payant, immédiat</li>
+            <li><strong>SMO</strong> = réseaux sociaux</li>
+          </ul>
+        </div>
+
+        <div class="callout attention">
+          <span class="label">⚠ Attention</span>
+          Trop souvent, SEM et SEO sont confondus. <strong>Le SEO n'est qu'une partie du SEM</strong> (la partie organique). Ces termes peuvent être incohérents entre Google et les autres cabinets.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch2-seo">
+      <div class="section-head">
+        <h3>SEO — Référencement naturel</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>SEO (Search Engine Optimization)</strong> = "Optimisation pour les moteurs de recherche". Ensemble des techniques pour <strong>améliorer la position</strong> d'un site web dans le SERP. Aussi appelé <strong>référencement naturel</strong> ou <strong>organique</strong>.</p>
+
+        <p>Un site est bien <strong>optimisé</strong> s'il est dans les <strong>premières positions</strong> sur les requêtes souhaitées.</p>
+
+        <p><strong>Le SEO agit sur ce que les moteurs valorisent :</strong></p>
+        <ul>
+          <li>La fréquentation</li>
+          <li>La notoriété</li>
+          <li>La situation géographique</li>
+          <li>Le code</li>
+          <li>Les contenus uniques, attrayants et pertinents</li>
+        </ul>
+
+        <p><strong>Trois objectifs SEO :</strong></p>
+        <ol>
+          <li><strong>Conversions</strong> — transformer les visiteurs en clients payants</li>
+          <li><strong>Intérêt et interaction</strong> — persuader les gens d'interagir avec le contenu</li>
+          <li><strong>Acquisition</strong> — trouver de nouveaux clients</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch2-plan">
+      <div class="section-head">
+        <h3>Planification SEO</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>Établir un plan SEO :</strong></p>
+        <ol>
+          <li><strong>Lister les étapes</strong> (ex : recherche de mots-clés, performance, etc.)</li>
+          <li><strong>Prioriser</strong> les étapes</li>
+          <li><strong>Définir un coût</strong> pour chaque étape — rester réaliste</li>
+          <li><strong>Date limite</strong> par tâche pour travailler régulièrement</li>
+          <li><strong>Faire évoluer le plan</strong> dès qu'il y a des changements (activité, algorithmes, fonctionnalités)</li>
+        </ol>
+
+        <div class="callout aide">
+          <span class="label">★ Règle d'or</span>
+          Le contenu de ton site doit être conçu <strong>pour tes internautes, pas pour les moteurs de recherche</strong>.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch2-mots">
+      <div class="section-head">
+        <h3>Mots-clés</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Le choix des mots-clés est <strong>la base du SEO</strong>. Trois choses à prendre en compte :</p>
+
+        <ol>
+          <li><strong>La fréquence</strong> — nombre de fois qu'un mot est recherché. Termes très fréquents = difficulté à se différencier.</li>
+          <li><strong>La concurrence</strong> — un site important a des chances d'apparaître. Si tu démarres, vise des mots avec moins de concurrence.</li>
+          <li><strong>La pertinence</strong> — les mots doivent correspondre à ce que tu offres.</li>
+        </ol>
+
+        <p>Seul un <strong>petit nombre de mots-clés</strong> ont un volume de recherche très élevé. Beaucoup ont un faible volume → c'est la <span class="term" data-def="Longue traîne : ensemble de mots-clés peu recherchés individuellement mais qui, cumulés, génèrent beaucoup de trafic. Plus précis = moins de concurrence.">longue traîne</span> en SEO.</p>
+
+        <div class="callout aide">
+          <span class="label">→ Exemple</span>
+          "Fraises" → beaucoup de concurrence. <strong>"Se faire livrer des fraises bio à Périgueux"</strong> → mot-clé de longue traîne avec des résultats plus immédiats. Pour une PME, la longue traîne offre souvent de meilleures opportunités.
+        </div>
+
+        <div class="callout note">
+          <span class="label">⚠ À éviter</span>
+          <strong>L'accumulation de mots-clés</strong> (keyword stuffing) : répéter inutilement les mots-clés. Effet contraire à celui voulu — pénalisation par les moteurs.
+        </div>
+
+        <p><strong>4 recommandations pour optimiser le SEO dans la durée :</strong></p>
+        <ul>
+          <li>Se renseigner sur le fonctionnement des moteurs</li>
+          <li>Surveiller les changements et leur impact</li>
+          <li>Trouver l'inspiration sur d'autres sites</li>
+          <li>Parler à ses clients</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch2-sea">
+      <div class="section-head">
+        <h3>SEA — Référencement payant</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>SEA (Search Engine Advertising)</strong> : type de publicité où les annonceurs <strong>enchérissent</strong> pour diffuser leurs pubs à côté des résultats selon les mots-clés saisis.</p>
+
+        <p>Avantage : les internautes qui cliquent sont <strong>pro-actifs</strong> — ils cherchent activement le produit. Différent du marketing traditionnel qui diffuse à des gens potentiellement intéressés.</p>
+
+        <p><strong>Les liens sponsorisés</strong> permettent d'acheter de l'espace pub via un système <strong>d'enchères d'annonces textuelles</strong>. Les annonces ressemblent beaucoup aux résultats naturels.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch2-encheres">
+      <div class="section-head">
+        <h3>Enchères & CPC max</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>À chaque recherche, les annonceurs entrent en compétition. Le processus dure quelques <strong>millisecondes</strong>.</p>
+
+        <p>L'<strong>enchère</strong> = montant maximal qu'un annonceur est prêt à dépenser pour un clic. C'est le <span class="term" data-def="CPC max (coût par clic maximal) : prix maximum que l'annonceur accepte de payer pour un clic sur sa pub.">CPC max</span>.</p>
+
+        <p>L'annonceur <strong>ne paie que lorsque quelqu'un clique</strong> sur son annonce → "<strong>paiement par clic</strong>". Grande différence avec presse / panneaux d'affichage.</p>
+
+        <p><strong>Niveau de qualité</strong> : note de 1 à 10 qui évalue à quel point ton annonce se rapproche de la recherche. Les annonces à <strong>haut niveau de qualité</strong> peuvent décrocher des emplacements plus hauts <strong>même avec des enchères plus basses</strong>. Tu ne peux pas simplement "acheter ton succès".</p>
+
+        <div class="keypoint">
+          <ul>
+            <li>SEA = enchères + paiement par clic (CPC max)</li>
+            <li>Pertinence + qualité comptent autant que le prix</li>
+            <li>Critères mots-clés sponsorisés : <strong>pertinence, trafic, concurrence</strong></li>
+            <li>Inclure CTA, offre limitée, mot-clé recherché dans le titre</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch2-pages">
+      <div class="section-head">
+        <h3>Page de destination</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les moteurs prennent aussi en compte la <strong>première page</strong> que les gens voient après avoir cliqué sur une annonce. C'est la <strong>page de destination</strong> (landing page).</p>
+
+        <p>Une page de destination cohérente avec le mot-clé recherché améliore la pertinence et donc le niveau de qualité.</p>
+      </div>
+    </section>
+
+    <!-- QUIZ chapitre 2 -->
+    <div class="quiz" data-quiz="2">
+      <div class="quiz-header">
+        <span class="icon">QUIZ</span>
+        <h4>Mini-quiz · Référencement</h4>
+        <span class="sub">3 questions</span>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Que signifie SERP ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">Service d'Échange de Référencement Public</button>
+          <button data-correct="true">Search Engine Results Page</button>
+          <button data-correct="false">Site Externe à Référencer Précisément</button>
+        </div>
+        <div class="quiz-feedback">✓ La SERP, c'est la page de résultats du moteur après une recherche.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Qu'est-ce que la "longue traîne" en SEO ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">Une stratégie de spam de mots-clés</button>
+          <button data-correct="true">L'ensemble des mots-clés peu recherchés individuellement mais à faible concurrence</button>
+          <button data-correct="false">Le délai pour qu'un site soit indexé</button>
+        </div>
+        <div class="quiz-feedback">✓ La longue traîne offre souvent de meilleures opportunités pour une PME.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">En SEA, qu'est-ce que le "CPC max" ?</div>
+        <div class="quiz-options">
+          <button data-correct="true">Le coût par clic maximal accepté par l'annonceur</button>
+          <button data-correct="false">Le coût mensuel d'une campagne</button>
+          <button data-correct="false">La capacité maximum d'une campagne</button>
+        </div>
+        <div class="quiz-feedback">✓ Tu ne paies que si quelqu'un clique, et au max ce que tu as fixé.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================================
+       CHAPITRE 3 — Référencement local
+       ============================================ -->
+  <article class="chapter" id="ch3">
+    <header class="chapter-header">
+      <div class="num">03 / 07</div>
+      <h2>Référencement local</h2>
+      <p class="summary">
+        Pour les entreprises avec boutique physique : annuaires, fiches Google, GPS et SEO local
+        pour capter les clients à proximité.
+      </p>
+      <div class="key-terms">
+        <span class="pill">SEO local</span>
+        <span class="pill">Annuaires locaux</span>
+        <span class="pill">SEA local</span>
+        <span class="pill">GPS</span>
+        <span class="pill">Fiche établissement</span>
+      </div>
+    </header>
+
+    <section class="section-block" id="ch3-intro">
+      <div class="section-head">
+        <h3>Qu'est-ce que le local ?</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>"Local" = entreprises avec une <strong>boutique physique</strong> qui proposent leurs services aux gens vivant à proximité ou de passage dans la région.</p>
+
+        <p><strong>Indexer géographiquement</strong> = les pros du SEO l'appellent <span class="term" data-def="SEO local : référencement naturel localisé, qui inclut adresse, horaires, téléphone, photos pour apparaître sur les recherches géolocalisées.">SEO local</span>. Il faut se construire une <strong>présence locale en ligne</strong>.</p>
+
+        <p>Avant tout : <strong>vérifie que les détails sur ton emplacement sont consultables</strong>. Adresse, carte interactive, téléphone, horaires.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch3-annu">
+      <div class="section-head">
+        <h3>Annuaires locaux</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les annuaires locaux sont <strong>excellents</strong> pour entrer en contact avec les clients à proximité.</p>
+
+        <p>Créer une fiche dans un annuaire inclut : <strong>nom commercial</strong>, <strong>adresse</strong>, <strong>numéro de téléphone</strong>.</p>
+
+        <div class="callout attention">
+          <span class="label">⚠ Attention</span>
+          Beaucoup d'annuaires exigent que ton entreprise <strong>possède un local</strong> ou ait une zone de service locale. Les <strong>entreprises virtuelles</strong> sans contact direct ne sont <strong>généralement pas acceptées</strong>.
+        </div>
+
+        <p><strong>Tu dois choisir :</strong></p>
+        <ul>
+          <li><strong>Le nom</strong> de l'entreprise (identique partout en ligne)</li>
+          <li><strong>L'adresse</strong> physique (boîtes postales et lieux partagés généralement refusés). Toujours sous la <strong>même forme</strong> sur chaque annuaire.</li>
+          <li><strong>Numéro de téléphone</strong> — local, avec indicatif régional. Éviter les numéros verts/gratuits.</li>
+        </ul>
+
+        <p><strong>Cibler en priorité :</strong></p>
+        <ul>
+          <li>Les grands moteurs : Yahoo!, Bing, Google (versions locales)</li>
+          <li>Les grands annuaires locaux</li>
+          <li>Les réseaux sociaux</li>
+          <li>Les sites d'avis spécialisés (parfois sectoriels)</li>
+        </ul>
+
+        <p>Le SEO local comporte aussi : <strong>horaires, description, photos, vidéos, catégories</strong>.</p>
+
+        <div class="callout aide">
+          <span class="label">★ Conseil</span>
+          Si tu es inscrit dans plusieurs annuaires (recommandé), garde une trace dans une <strong>feuille de calcul</strong>. Si nom/adresse/numéro change → mets toutes les fiches à jour <strong>immédiatement</strong>.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch3-pub">
+      <div class="section-head">
+        <h3>Publicité locale (SEA local)</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>La <strong>publicité locale</strong> permet de montrer tes annonces <strong>uniquement aux personnes à proximité</strong>.</p>
+
+        <p><strong>Canaux locaux :</strong></p>
+        <ul>
+          <li><strong>Moteurs de recherche</strong> — afficher seulement dans certaines régions</li>
+          <li><strong>Réseaux sociaux</strong> (Facebook, LinkedIn) — pages pro et pubs payantes pour cibler localement</li>
+          <li><strong>Annuaires locaux & sites d'avis</strong> — proximité des utilisateurs</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch3-mob">
+      <div class="section-head">
+        <h3>Applications mobiles</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>Deux usages des technologies mobiles :</strong></p>
+
+        <ol>
+          <li><strong>S'assurer que ta fiche & ton site fonctionnent parfaitement sur mobile</strong>, avec coordonnées. Profiter de la <strong>fonction GPS</strong> pour orienter les utilisateurs.</li>
+          <li><strong>Application dédiée</strong> que les utilisateurs installent. Peut utiliser le GPS pour envoyer des notifications quand le client approche du magasin (promos, événements, prise de rendez-vous, etc.).</li>
+        </ol>
+
+        <p>La <strong>publicité locale + GPS</strong> permet de cibler les <strong>bons clients</strong>, au <strong>bon moment</strong>, et désormais au <strong>bon endroit</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch3-seol">
+      <div class="section-head">
+        <h3>SEO local</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Tu dois <strong>expliquer aux moteurs de recherche ce que tu entends par "local"</strong> !</p>
+
+        <p>Ajoute du contenu utile qui aide à identifier ta position géographique :</p>
+        <ul>
+          <li>Descriptions, photos, vidéos</li>
+          <li>Événements connus dans ta région</li>
+          <li>Articles avec offres spéciales invitant les clients locaux</li>
+        </ul>
+
+        <p>Au fur et à mesure que tu ajoutes des <strong>informations locales</strong>, les moteurs identifient la pertinence pour les recherches locales.</p>
+
+        <div class="keypoint">
+          <ul>
+            <li>Inscription cohérente sur les annuaires (Google, Bing, Yahoo) + sites d'avis</li>
+            <li><strong>Mêmes infos partout</strong> — sinon tu pénalises ton SEO local</li>
+            <li>SEA local : ciblage géographique précis + GPS pour timing parfait</li>
+            <li>Contenu géolocalisé sur ton site → meilleure visibilité locale</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ chapitre 3 -->
+    <div class="quiz" data-quiz="3">
+      <div class="quiz-header">
+        <span class="icon">QUIZ</span>
+        <h4>Mini-quiz · Référencement local</h4>
+        <span class="sub">3 questions</span>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Pour s'inscrire dans un annuaire local, l'entreprise doit généralement :</div>
+        <div class="quiz-options">
+          <button data-correct="false">Avoir un site web international</button>
+          <button data-correct="true">Posséder un local ou une zone de service locale</button>
+          <button data-correct="false">Être référencée sur Google uniquement</button>
+        </div>
+        <div class="quiz-feedback">✓ Les entreprises 100 % virtuelles sans local sont généralement refusées.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Pourquoi faut-il toujours saisir son adresse "sous la même forme" sur tous les annuaires ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">C'est une obligation légale</button>
+          <button data-correct="true">Pour la cohérence et le SEO local — les moteurs détectent les divergences</button>
+          <button data-correct="false">Pour éviter les doublons dans la base CNIL</button>
+        </div>
+        <div class="quiz-feedback">✓ Cohérence = meilleure indexation.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Le SEA local permet de :</div>
+        <div class="quiz-options">
+          <button data-correct="true">Cibler les pubs uniquement aux personnes proches géographiquement</button>
+          <button data-correct="false">Apparaître seulement dans les annuaires papier</button>
+          <button data-correct="false">Acheter automatiquement les meilleurs mots-clés</button>
+        </div>
+        <div class="quiz-feedback">✓ Bon client + bon moment + bon endroit grâce au GPS.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================================
+       CHAPITRE 4 — Site Web
+       ============================================ -->
+  <article class="chapter" id="ch4">
+    <header class="chapter-header">
+      <div class="num">04 / 07</div>
+      <h2>Site Web</h2>
+      <p class="summary">
+        Nom de domaine, page d'accueil, ergonomie, navigation, CTA, dark patterns, contenu,
+        backlinks. Tout pour construire un site qui convertit (et reste éthique).
+      </p>
+      <div class="key-terms">
+        <span class="pill">URL</span>
+        <span class="pill">TLD</span>
+        <span class="pill">UX / UI</span>
+        <span class="pill">Look & feel</span>
+        <span class="pill">Fil d'Ariane</span>
+        <span class="pill">CTA</span>
+        <span class="pill">Dark Pattern</span>
+        <span class="pill">Backlink</span>
+        <span class="pill">Balises Meta</span>
+      </div>
+    </header>
+
+    <section class="section-block" id="ch4-rappel">
+      <div class="section-head">
+        <h3>Rappel : qu'est-ce qu'un site web ?</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Un <strong>site web</strong> = ensemble de pages web et ressources reliées par des <strong>liens hypertextes</strong>, accessibles via une adresse <span class="term" data-def="URL (Uniform Resource Locator) : adresse complète d'une ressource sur le web (ex : https://exemple.com/page).">URL</span>, le tout enregistré sous le même <strong>nom de domaine</strong>.</p>
+
+        <p>Un site contient textes et multimédia, <strong>hébergé</strong> sur un <strong>serveur web</strong>, accessible via internet ou intranet.</p>
+
+        <p><strong>Référencement site web :</strong></p>
+        <ul>
+          <li><strong>Indexation</strong> — inscription dans les moteurs et annuaires</li>
+          <li><strong>Positionnement</strong> — actions et techniques pour améliorer la position dans les résultats</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-dom">
+      <div class="section-head">
+        <h3>Le nom de domaine</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Élément <strong>primordial</strong> de la méthode SEO. C'est ce que les internautes tapent dans leur navigateur pour te trouver.</p>
+
+        <p><strong>Étapes à respecter :</strong></p>
+        <ol>
+          <li>Vérifier qu'il est <strong>disponible</strong></li>
+          <li>Choisir un nom <strong>court, pertinent, direct, mémorable</strong></li>
+          <li>Si .com / .fr indisponible, choisir un <span class="term" data-def="TLD (Top-Level Domain) : extension du nom de domaine (.com, .fr, .org, .io, .net…). Le choix peut indiquer le type d'organisation.">TLD</span> alternatif (ex : <strong>.org</strong> pour les ONG)</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-acc">
+      <div class="section-head">
+        <h3>Page d'accueil</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>Première page</strong> que les internautes verront. C'est la <strong>vitrine de ton magasin</strong>.</p>
+
+        <p>Elle doit refléter l'<strong>identité de marque</strong>, composée de 3 éléments :</p>
+        <ul>
+          <li><strong>Identité visuelle</strong> (logo, couleurs, typographie)</li>
+          <li><strong>Voix</strong> (façon dont l'entreprise s'adresse à sa cible)</li>
+          <li><strong>Valeurs</strong></li>
+        </ul>
+
+        <p>Maintenir une identité <strong>cohérente</strong> renforce ton image, préserve ta crédibilité et démontre ton authenticité.</p>
+
+        <p>Le <span class="term" data-def="Look and feel : l'apparence visuelle ET la sensation d'usage d'un produit numérique. Inclut design, animations, comportements.">look and feel</span> doit être <strong>identique sur toutes les pages</strong> : palette, typo, visuels.</p>
+
+        <div class="callout attention">
+          <span class="label">⚠ Attention</span>
+          L'organisation des informations sur la page d'accueil et la <strong>cohérence visuelle</strong> sont des éléments importants en SEO.
+        </div>
+
+        <div class="callout aide">
+          <span class="label">★ Aide SEO</span>
+          Utilise des <strong>titres descriptifs et uniques</strong> pour chaque page. Inclus les mots importants pour aider les moteurs à comprendre le contenu.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-erg">
+      <div class="section-head">
+        <h3>Ergonomie</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>Définition</strong> : étude du travail visant à améliorer les conditions et accroître la productivité. En digital, ça signifie <strong>permettre aux visiteurs de trouver facilement</strong> ce qu'ils cherchent.</p>
+
+        <p><strong>Deux approches techniques :</strong></p>
+        <ul>
+          <li><span class="term" data-def="UX (User Experience) Design : conception de l'expérience utilisateur globale — parcours, ressenti, ergonomie.">UX Design</span> — User Experience, design de l'expérience utilisateur</li>
+          <li><span class="term" data-def="UI (User Interface) Design : conception visuelle de l'interface — couleurs, mise en page, formes, visuels.">UI Design</span> — User Interface, design de l'interface (couleurs, mise en page, formes)</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-aspect">
+      <div class="section-head">
+        <h3>L'aspect</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>La première impression est <strong>capitale</strong>. Les sites web <strong>épurés</strong> sont devenus le standard. Les plus visités au monde ont tous convergé vers une chose : <strong>la simplicité</strong>.</p>
+
+        <p>Les internautes lisent <strong>textes foncés sur fond clair</strong>. Vérifie que tes textes sont lisibles. Attention à :</p>
+        <ul>
+          <li>La <strong>police de caractères</strong></li>
+          <li>La <strong>taille</strong> (recommandé : <strong>au moins 16 pt</strong>)</li>
+          <li>La <strong>couleur</strong></li>
+        </ul>
+
+        <p>Évite les polices <strong>manuscrites</strong> sur le web.</p>
+
+        <div class="callout aide">
+          <span class="label">→ Pratique</span>
+          Le <strong>logo</strong> se positionne dans la barre de navigation, à <strong>gauche ou au milieu en haut</strong> de chaque page. Raison : la plupart des internautes parcourent les pages en formant un <strong>Z</strong>.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-nav">
+      <div class="section-head">
+        <h3>Navigation</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>La navigation guide les internautes. <strong>Organisation cohérente et logique</strong>. Les internautes <strong>s'attendent à ce que les choses fonctionnent d'une certaine manière</strong>.</p>
+
+        <p><strong>Règles :</strong></p>
+        <ul>
+          <li>Ne pas obliger à scroller trop pour voir l'essentiel</li>
+          <li>Utiliser titres et listes à puces pour aider au survol rapide</li>
+          <li>Boutons "À propos" ou "Contact" sur <strong>chaque page</strong></li>
+        </ul>
+
+        <p>Le <span class="term" data-def="Fil d'Ariane (breadcrumb) : indique la position du visiteur dans l'arborescence du site (Accueil > Catégorie > Page). Aide à naviguer sans utiliser le menu.">fil d'Ariane</span> permet au lecteur de se retrouver et de naviguer de page en page sans le menu.</p>
+
+        <p>Les <strong>liens hypertexte</strong> (texte ou images) redirigent vers d'autres pages au clic.</p>
+
+        <p>Pour les sites avec beaucoup de pages, intégrer un <strong>champ de recherche</strong> dans la barre de navigation.</p>
+
+        <div class="callout aide">
+          <span class="label">→ Stat</span>
+          <strong>56 % des visiteurs utilisent le menu</strong> pour naviguer. Source : Metapress.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-cta">
+      <div class="section-head">
+        <h3>Call to Action (CTA)</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les <span class="term" data-def="CTA (Call to Action / Appel à l'action) : bouton ou lien qui pousse l'internaute à effectuer une action précise (acheter, s'inscrire, télécharger…).">CTA</span> amènent les internautes à poser une <strong>action désirable</strong>. Représentés par des boutons : "Ajouter au Panier", "Lire Plus".</p>
+
+        <p>Ils servent à passer les étapes du <strong>tunnel de conversion</strong>.</p>
+
+        <p><strong>Exemple e-commerce :</strong></p>
+        <ol>
+          <li>Visiter une page produit</li>
+          <li>Ajouter au panier</li>
+          <li>Finaliser la vente</li>
+        </ol>
+
+        <p>Les CTA peuvent aussi simplement <strong>fluidifier la navigation</strong> sans utiliser le menu (ex : "En savoir plus" → page À propos détaillée).</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-dark">
+      <div class="section-head">
+        <h3>Dark Pattern (deceptive design)</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Le <span class="term" data-def="Dark Pattern : interface volontairement trompeuse qui pousse l'utilisateur à effectuer une action qu'il n'aurait pas faite sciemment (ex : abonnement caché, désinscription difficile).">Dark Pattern</span> = design trompeur utilisé sur le web (notamment e-commerce) pour <strong>pousser l'utilisateur à une action qu'il n'aurait pas faite</strong> autrement.</p>
+
+        <p>Basé sur des techniques de <strong>manipulation psychologique</strong> : tromper l'utilisateur pour qu'il clique, s'inscrive ou achète <strong>sans s'en rendre compte</strong>.</p>
+
+        <div class="callout note">
+          <span class="label">⚠ Exemple type — Amazon Prime</span>
+          Amazon attire les acheteurs vers un bouton jaune pour finaliser le paiement, mais ce bouton les fait <strong>souscrire à Amazon Prime gratuitement pendant une période de test</strong>. Pour ne pas souscrire, un lien <strong>peu visible en bas à gauche</strong> permet de continuer sans s'abonner.
+        </div>
+
+        <p>Les moteurs de recherche essayent actuellement de <strong>réprimer ce genre d'activité</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-cont">
+      <div class="section-head">
+        <h3>Contenu — fond & forme</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>Sur le fond, il faut :</strong></p>
+        <ul>
+          <li><strong>Éviter d'être vaniteux ou commercial</strong> — pas de discours de vente brut, pas trop de jargon</li>
+          <li><strong>Expliquer, vulgariser, aider</strong> — montrer comment tu réponds aux besoins des clients</li>
+          <li><strong>Contextualiser, être inclusif</strong> — raconter une histoire, témoignages, vidéos clients, possibilité de laisser des avis</li>
+          <li><strong>Imager, épurer</strong> — chaque seconde compte, les visiteurs lisent en diagonale</li>
+        </ul>
+
+        <p>Construis ton site en gardant en tête tes <strong>objectifs pro</strong> ET les <strong>envies de tes visiteurs</strong>.</p>
+
+        <p>Les <span class="term" data-def="Crawler (ou bot, spider) : programme automatisé qui parcourt le web en suivant les liens pour indexer le contenu des pages.">crawlers</span> analysent l'organisation et le contenu, recoupent les <strong>paraphrases</strong> et le <strong>plagiat</strong> pour évaluer l'apport du site et améliorer (ou non) sa position dans le SERP.</p>
+
+        <div class="callout aide">
+          <span class="label">★ Aide SEO</span>
+          Le contenu du site doit être <strong>unique</strong>.
+        </div>
+
+        <p><strong>Sur la forme :</strong></p>
+        <ul>
+          <li><strong>Balises Meta</strong> et <strong>titre</strong> — cachés dans le HTML, aident le moteur à comprendre la page</li>
+          <li><strong>Meta description</strong> — 2 phrases courtes, renforce le titre avec les mêmes mots-clés</li>
+          <li><strong>En-têtes</strong> (H1, H2…) — visibles, structurent le contenu</li>
+          <li><strong>Texte</strong> — ne pas répéter trop souvent l'expression d'indexation (risque de spam)</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch4-back">
+      <div class="section-head">
+        <h3>Backlink (liens entrants)</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les <span class="term" data-def="Backlink : lien situé sur un autre site qui pointe vers le tien. Plus tu en as de qualité, plus les moteurs te considèrent comme légitime.">backlinks</span> (liens entrants/externes) = liens situés sur d'autres sites qui pointent vers le tien.</p>
+
+        <p>Comparable à des <strong>votes de confiance</strong> : si beaucoup de liens pointent vers ton site, ça signifie que beaucoup de gens pensent que tu offres un <strong>contenu de qualité</strong>.</p>
+
+        <div class="keypoint">
+          <ul>
+            <li>Identité de marque cohérente sur toutes les pages</li>
+            <li>UX/UI : épurer, simplifier, taille texte ≥ 16pt</li>
+            <li>CTA bien placés pour fluidifier le tunnel de conversion</li>
+            <li>Éviter les Dark Patterns — éthique + sanctionné</li>
+            <li>Balises Meta + Backlinks = piliers SEO techniques</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ chapitre 4 -->
+    <div class="quiz" data-quiz="4">
+      <div class="quiz-header">
+        <span class="icon">QUIZ</span>
+        <h4>Mini-quiz · Site Web</h4>
+        <span class="sub">3 questions</span>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Qu'est-ce qu'un Dark Pattern ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">Un thème graphique avec fond noir</button>
+          <button data-correct="true">Un design trompeur qui pousse à une action non voulue</button>
+          <button data-correct="false">Une technique avancée de SEO</button>
+        </div>
+        <div class="quiz-feedback">✓ Manipulation psychologique. Désormais sanctionnée par les moteurs.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Quelle taille de police est recommandée minimum sur le web ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">10 pt</button>
+          <button data-correct="false">12 pt</button>
+          <button data-correct="true">16 pt</button>
+        </div>
+        <div class="quiz-feedback">✓ 16 pt minimum pour faciliter la lisibilité à l'écran.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Un backlink, c'est :</div>
+        <div class="quiz-options">
+          <button data-correct="false">Un lien interne entre deux pages de ton site</button>
+          <button data-correct="true">Un lien externe situé sur un autre site qui pointe vers le tien</button>
+          <button data-correct="false">Un retour utilisateur sur ton site</button>
+        </div>
+        <div class="quiz-feedback">✓ C'est un "vote de confiance" pour ton site auprès des moteurs.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================================
+       CHAPITRE 5 — Réseaux sociaux
+       ============================================ -->
+  <article class="chapter" id="ch5">
+    <header class="chapter-header">
+      <div class="num">05 / 07</div>
+      <h2>Réseaux sociaux</h2>
+      <p class="summary">
+        SMO, SMM, nudging, e-réputation : comment utiliser les médias sociaux comme un levier
+        de marketing sans tomber dans les pièges classiques.
+      </p>
+      <div class="key-terms">
+        <span class="pill">SMO</span>
+        <span class="pill">SMM</span>
+        <span class="pill">Nudging</span>
+        <span class="pill">E-réputation</span>
+        <span class="pill">PAO</span>
+        <span class="pill">Hydratation</span>
+      </div>
+    </header>
+
+    <section class="section-block" id="ch5-intro">
+      <div class="section-head">
+        <h3>Pourquoi les médias sociaux ?</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les <strong>médias sociaux</strong> (Facebook, Twitter, etc.) sont un moyen supplémentaire de mieux faire connaître l'activité et de <strong>créer des liens</strong> avec les clients.</p>
+
+        <ul>
+          <li><strong>SEO pour ces médias = </strong><span class="term" data-def="SMO (Social Media Optimization) : optimisation organique de ta présence sur les réseaux sociaux. Équivalent SEO mais pour les médias sociaux.">SMO</span> (Social Media Organization)</li>
+          <li><strong>SEA pour ces médias = </strong><span class="term" data-def="SMM (Social Media Marketing) : publicité payante sur les réseaux sociaux. Équivalent SEA mais pour les médias sociaux.">SMM</span> (Social Media Marketing)</li>
+        </ul>
+
+        <p><strong>À quoi ça sert :</strong></p>
+        <ul>
+          <li><strong>Mise en pratique du </strong><span class="term" data-def="Nudging (paternalisme libéral) : technique d'incitation douce pour pousser quelqu'un vers une décision sans contraindre. Ex : un email personnalisé qui te rappelle ton panier abandonné.">nudging</span> (paternalisme libéral) — rester présent dans l'esprit des clients par des publications régulières</li>
+          <li><strong>Établir une relation de confiance</strong> avec le public — diminue la résistance, génère un état motivationnel</li>
+          <li><strong>Promouvoir l'activité indirectement</strong> — quelqu'un dit du bien de toi a plus de poids que toi-même</li>
+          <li><strong>Identifier la </strong><span class="term" data-def="E-réputation : ton image perçue en ligne, façonnée par tes contenus + ce que les autres en disent.">e-réputation</span> — la façon dont les internautes interagissent avec ta marque</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch5-types">
+      <div class="section-head">
+        <h3>Types de médias sociaux</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Il faut <strong>classer tous les sites par catégorie</strong> pour savoir auxquels donner la priorité.</p>
+
+        <p><strong>La dimension :</strong> les principaux réseaux (Facebook, Twitter, YouTube, Instagram, LinkedIn) comptent énormément d'utilisateurs (Facebook : <strong>+1 milliard de membres dans le monde</strong>). Tes clients y ont probablement un compte.</p>
+
+        <p>Outre ces géants : <strong>sites plus spécifiques</strong> dédiés à des publics particuliers (TripAdvisor, La Fourchette…). Moins d'utilisateurs, mais <strong>plus pertinents pour ton secteur</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch5-obj">
+      <div class="section-head">
+        <h3>Objectif du média</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Trois grands objectifs :</p>
+
+        <ol>
+          <li><strong>Réseaux personnels</strong> — rester en contact avec famille/amis. Tu peux y entrer en tant qu'entreprise, mais avec un ton <strong>léger, intéressant, utile</strong> (pas axé ventes)</li>
+          <li><strong>Réseaux de partage de contenu</strong> — fournir des informations détaillées : faits, chiffres, graphiques, avis</li>
+          <li><strong>Réseaux professionnels</strong> — entreprise, recherche d'emploi, recrutement</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch5-plan">
+      <div class="section-head">
+        <h3>Plan SMO</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>1) Sélectionner les médias sociaux</strong> — quels réseaux sont les plus utilisés par tes clients ?</p>
+        <ul>
+          <li>Évaluer le rapport production/entretien</li>
+          <li>Identifier les avantages spécifiques de chaque réseau</li>
+          <li>Déterminer les objectifs d'usage</li>
+          <li>Compte Pro vs particulier ?</li>
+        </ul>
+
+        <p><strong>2) </strong><span class="term" data-def="Hydratation (peuplement) : action de remplir un compte vide avec de la donnée réelle (textes, photos, profil, etc.).">Hydrater</span> / peupler le média — remplir un compte qui ne contient pas encore de données.</p>
+        <ul>
+          <li>Créer un profil ou page d'accueil sur chaque média</li>
+          <li>Données pro avec coordonnées pro (e-mail, adresse)</li>
+          <li>Ajouter détails, photos, vidéos chaque fois que possible</li>
+        </ul>
+
+        <p><strong>3) Initialiser les actions</strong> — faire connaissance avec les voisins.</p>
+        <ul>
+          <li>Inclure le <strong>réseau existant</strong> sur les médias sociaux</li>
+          <li>S'adresser aux membres comme dans la "vraie vie"</li>
+          <li>Impossible de forcer les relations — ça prend du temps</li>
+          <li>Inviter les clients existants par liens, publicité, promotions</li>
+        </ul>
+
+        <p><strong>4) Élargir le réseau (</strong><span class="term" data-def="PAO (Planification des Actions Ouvertes) : démarche de planification précise des contenus à publier, du moment, du réseau et de la personne en charge.">PAO</span><strong>)</strong> — planifier les initiatives ponctuelles/récurrentes.</p>
+        <ul>
+          <li><strong>Préparer un programme</strong> — quel contenu publier ?</li>
+          <li><strong>Identifier le moment</strong> idéal (immédiat/différé)</li>
+          <li><strong>Sur quel réseau</strong> ?</li>
+          <li><strong>Quelle personne</strong> de la société sera chargée ?</li>
+        </ul>
+
+        <div class="callout attention">
+          <span class="label">⚠ Attention</span>
+          Si ce n'est pas <strong>intégré au fonctionnement</strong> de l'entreprise, le SMO ne sera pas mis en œuvre et va même produire <strong>l'effet inverse</strong>.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch5-mes">
+      <div class="section-head">
+        <h3>Mesurer son réseau</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les réseaux sociaux ont leurs propres données. Mais se connecter à chaque réseau séparément peut être <strong>complexe et chronophage</strong>.</p>
+
+        <p>Solution : <strong>outils de gestion des médias sociaux</strong> qui agrègent les mesures.</p>
+
+        <div class="callout note">
+          <span class="label">⚠ Inconvénient</span>
+          Ces outils ne suivent que l'activité <strong>sur les réseaux eux-mêmes</strong>. Pour un suivi complet, utiliser des outils <strong>indépendants d'analyse Web</strong> (Google Analytics).
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch5-pieges">
+      <div class="section-head">
+        <h3>Pièges récurrents</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>Les erreurs à éviter absolument :</strong></p>
+
+        <ul>
+          <li><strong>Être autocentré</strong> — tes followers s'intéressent déjà à toi. Offre une expérience plaisante, conserve leur attention. Suivi des commentaires, sois <strong>compréhensif, prévenant, cohérent</strong>. Réponds aux réclamations. Un commentaire négatif n'est pas une catastrophe — c'est l'occasion de montrer ton sérieux.</li>
+          <li><strong>Se disperser</strong> — il y a tellement de réseaux que les occasions sont quasi illimitées. Mais ça prend du temps. <strong>Concentre-toi sur les plus importants</strong>.</li>
+          <li><strong>Poster irrégulièrement</strong> — un compte sans actu depuis des mois donne l'impression que l'entreprise a fermé. Les boîtes prospères communiquent beaucoup.</li>
+        </ul>
+
+        <div class="keypoint">
+          <ul>
+            <li>SMO = organique · SMM = payant (sur les réseaux)</li>
+            <li>Sélectionner → Hydrater → Initialiser → Élargir (PAO)</li>
+            <li>Outils de gestion + Google Analytics pour mesurer</li>
+            <li>Éviter : autocentrage, dispersion, irrégularité</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ chapitre 5 -->
+    <div class="quiz" data-quiz="5">
+      <div class="quiz-header">
+        <span class="icon">QUIZ</span>
+        <h4>Mini-quiz · Réseaux sociaux</h4>
+        <span class="sub">3 questions</span>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">SMO et SMM, c'est :</div>
+        <div class="quiz-options">
+          <button data-correct="false">Deux noms différents pour la même chose</button>
+          <button data-correct="true">SMO = optimisation organique des réseaux sociaux ; SMM = pub payante sur ces réseaux</button>
+          <button data-correct="false">Deux algorithmes Google</button>
+        </div>
+        <div class="quiz-feedback">✓ SMO = équivalent SEO ; SMM = équivalent SEA, sur les médias sociaux.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Le "nudging" en marketing désigne :</div>
+        <div class="quiz-options">
+          <button data-correct="false">Le ciblage agressif par notification</button>
+          <button data-correct="true">Une technique d'incitation douce, "paternalisme libéral"</button>
+          <button data-correct="false">Une stratégie de spam contrôlé</button>
+        </div>
+        <div class="quiz-feedback">✓ Pousser sans contraindre — rester dans l'esprit du client.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Que signifie "hydrater" un média social ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">Augmenter sa portée par de la pub</button>
+          <button data-correct="true">Remplir un compte vide avec des données réelles (profil, contenu, photos)</button>
+          <button data-correct="false">Ajouter des followers payants</button>
+        </div>
+        <div class="quiz-feedback">✓ Hydrater = peupler avec de la donnée de domaine.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================================
+       CHAPITRE 6 — Marketing Mail
+       ============================================ -->
+  <article class="chapter" id="ch6">
+    <header class="chapter-header">
+      <div class="num">06 / 07</div>
+      <h2>Marketing Mail</h2>
+      <p class="summary">
+        L'emailing pour fidéliser à coût réduit — RGPD, opt-in, segmentation, A/B testing
+        et toutes les métriques pour mesurer l'efficacité.
+      </p>
+      <div class="key-terms">
+        <span class="pill">Opt-in</span>
+        <span class="pill">RGPD</span>
+        <span class="pill">Segmentation</span>
+        <span class="pill">Test A/B</span>
+        <span class="pill">CTR</span>
+        <span class="pill">Délivrabilité</span>
+        <span class="pill">Smart Templates</span>
+      </div>
+    </header>
+
+    <section class="section-block" id="ch6-intro">
+      <div class="section-head">
+        <h3>L'e-mail marketing</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>L'e-mail marketing (emailing)</strong> = démarche de marketing direct qui consiste à envoyer du courrier électronique à plusieurs destinataires d'une base de données <strong>de manière ciblée</strong>.</p>
+
+        <p>Ce <strong>n'est pas du spam</strong> : on envoie des informations et offres <strong>pertinentes</strong> à des personnes qui ont <strong>déjà accepté</strong>.</p>
+
+        <p>L'e-mail marketing construit la <strong>fidélité</strong> et l'<strong>engagement client</strong> à <strong>coût très réduit</strong>. Il fonctionne bien sur mobile.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-rgpd">
+      <div class="section-head">
+        <h3>Légal — RGPD</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Pour toute récupération d'infos, les gens doivent te <strong>donner la permission</strong> de collecter leurs données personnelles (nom, e-mail, téléphone) afin de leur envoyer des emails commerciaux.</p>
+
+        <p>En application des lois sur la prospection commerciale, tu dois :</p>
+        <ul>
+          <li>Préciser <strong>ton identité</strong></li>
+          <li>Donner la possibilité <strong>de s'inscrire ET de se désinscrire</strong> eux-mêmes</li>
+          <li>Répertorier la <strong>date, l'heure et la source</strong> du consentement</li>
+        </ul>
+
+        <div class="callout note">
+          <span class="label">⚠ Rappel légal</span>
+          Il est <strong>illégal</strong> d'envoyer des emails à des citoyens UE sans leur consentement. <strong>L'achat de listes de courriels est interdit</strong>.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-prep">
+      <div class="section-head">
+        <h3>Préparation</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>1ère étape : fixer des objectifs.</strong> Présenter produits/services, faire venir des visiteurs, distribuer un coupon générant 10 ventes minimum, etc.</p>
+
+        <p>Une fois l'objectif connu, établir <strong>la liste des personnes intéressées</strong> :</p>
+        <ul>
+          <li><strong>Leur demander</strong> — proposer aux clients en magasin d'envoyer bons et offres en échange de leur email. Sur le site : formulaire d'abonnement</li>
+          <li><strong>Identifier les différents publics</strong> et personnaliser les communications</li>
+        </ul>
+
+        <p>On établit une <strong>base de données client</strong> avec une adresse e-mail par contact, plus nom, adresse postale, etc.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-logiciels">
+      <div class="section-head">
+        <h3>Logiciels & formulaire</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Les logiciels d'emailing fournissent un <strong>formulaire en ligne</strong> à intégrer au site (copier-coller un morceau de code). Les visiteurs s'inscrivent, la donnée est transférée automatiquement à la base.</p>
+
+        <p><strong>Le formulaire d'inscription doit :</strong></p>
+        <ul>
+          <li>Rester <strong>court et facile à remplir</strong></li>
+          <li>Fournir un <span class="term" data-def="Double opt-in : double confirmation de l'inscription. L'utilisateur saisit son email puis confirme via un mail de validation. Garantit son consentement.">double opt-in</span> (confirmation par mail)</li>
+        </ul>
+
+        <p><strong>Design Pattern (Template) :</strong> les modèles d'e-mail = <strong>publipostage / publimail</strong>.</p>
+
+        <p>Les <span class="term" data-def="Smart Templates : moteur dynamique de création de modèles d'emails. Analyse ton site et génère automatiquement des galeries personnalisées optimisées pour la conversion.">Smart Templates</span> = moteur dynamique qui <strong>analyse ton site</strong> et génère des modèles personnalisés optimisés pour la conversion.</p>
+
+        <p>Beaucoup lisent leurs mails sur mobile : <strong>mobile-friendly obligatoire</strong>. Les outils permettent de prévisualiser sur différents appareils.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-plan">
+      <div class="section-head">
+        <h3>Planification (PAO)</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Important : <strong>capacité de planifier</strong> le moment d'envoi. Envoi immédiat ou jour/heure ultérieure.</p>
+
+        <p>Les outils <strong>suivent ce que font les gens</strong> à réception : ouverture, clics. On peut enregistrer ces préférences pour envoyer aux <strong>moments les plus pertinents</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-seg">
+      <div class="section-head">
+        <h3>Segmentation</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>De nombreux services offrent une <strong>fonction de personnalisation</strong> qui place du contenu pertinent dans un modèle d'email selon les centres d'intérêt.</p>
+
+        <p>La <span class="term" data-def="Segmentation : découpage du marché cible en groupes homogènes (segments) qui partagent des caractéristiques. Permet d'envoyer des messages adaptés à chaque groupe.">segmentation</span> divise le marché cible en <strong>segments de clients</strong> = groupes homogènes susceptibles d'utiliser un produit/service.</p>
+
+        <p>En <strong>ciblant chaque groupe</strong> avec un email personnalisé, tu augmentes les chances que les internautes <strong>lisent et cliquent</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-cont">
+      <div class="section-head">
+        <h3>Contenu — nomenclature & texte</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>Les deux choses que les clients voient en premier :</strong></p>
+        <ol>
+          <li>Le <strong>nom</strong> dans le champ "De"</li>
+          <li>L'<strong>objet</strong> de l'email</li>
+        </ol>
+
+        <p>Utilise un nom et email clairs qui identifient l'entreprise. Les gens ouvrent les emails de gens qu'ils <strong>reconnaissent et en qui ils ont confiance</strong>.</p>
+
+        <p><strong>Objet réussi :</strong></p>
+        <ul>
+          <li><strong>Court et simple</strong> — moins de 10 mots</li>
+          <li>Infos les plus utiles et pertinentes</li>
+          <li>Si possible, <strong>personnalisé</strong> ou <strong>localisé</strong></li>
+        </ul>
+
+        <div class="callout note">
+          <span class="label">⚠ Mots qui déclenchent les filtres anti-spam</span>
+          <strong>Éviter</strong> : "gratuit", "remise", "rappel", "promos", le symbole <strong>€</strong>, les <strong>points d'exclamation</strong>.
+        </div>
+
+        <p><strong>Texte :</strong> les internautes lisent <strong>en diagonale</strong>. Le contenu doit être <strong>concis et droit au but</strong>.</p>
+        <ul>
+          <li>Paragraphes <strong>courts</strong> (1 à 3 phrases)</li>
+          <li>Centrés sur <strong>une seule idée</strong></li>
+          <li>Liens vers articles plus longs</li>
+          <li>Rédaction <strong>convaincante et engageante</strong></li>
+          <li>Inclure des <strong>CTA</strong> dans les liens</li>
+          <li>Mettre en évidence avec <strong>texte en gras</strong> et design</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-oblig">
+      <div class="section-head">
+        <h3>Obligations légales</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p><strong>En bas de chaque email :</strong></p>
+        <ul>
+          <li>Lien pour <strong>se désabonner</strong></li>
+          <li>Lien pour <strong>changer ses préférences</strong></li>
+          <li>Lien pour <strong>mettre à jour ses infos de contact</strong></li>
+          <li><strong>Informations légales</strong> de l'entreprise</li>
+        </ul>
+
+        <div class="callout note">
+          <span class="label">⚠ À savoir</span>
+          Un courrier électronique <strong>n'est pas chiffré par défaut</strong> et peut être transmis. Attention aux données perso et aux listes de diffusion.
+        </div>
+
+        <p>Tu <strong>ne peux pas</strong> :</p>
+        <ul>
+          <li>Demander un mot de passe pour la désinscription</li>
+          <li>Forcer un sondage avant désinscription</li>
+        </ul>
+
+        <p>Respecter cette interdiction <strong>augmente la délivrabilité</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-test">
+      <div class="section-head">
+        <h3>Test A/B</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Le <span class="term" data-def="Test A/B : méthode d'expérimentation où on compare deux versions (A et B) d'un email/page pour déterminer laquelle performe mieux selon une métrique.">test A/B</span> = créer <strong>deux versions</strong> d'un email pour voir celle qui fonctionne mieux.</p>
+
+        <p>On regarde l'email avec :</p>
+        <ul>
+          <li><strong>Taux d'ouverture</strong> plus élevé — nb d'ouvertures / nb d'envois</li>
+          <li><strong>Taux de clic</strong> plus élevé — engagement avec le contenu</li>
+        </ul>
+
+        <p>On peut tester : <strong>objets, fréquence, contenu, images</strong>. Tester d'envoyer le mardi vs samedi, hebdomadaire vs mensuel.</p>
+
+        <div class="callout aide">
+          <span class="label">★ Conseil</span>
+          <strong>Ne pas noyer les gens sous les emails</strong>. Toujours offrir la possibilité de <strong>recevoir moins de mails</strong> (ex : résumé mensuel) plutôt qu'ils se désinscrivent.
+        </div>
+
+        <p>Créer des <strong>pages d'accueil spécifiques (A&amp;B)</strong> pour les campagnes : quand quelqu'un clique, il atterrit sur une <strong>page web pertinente</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch6-perf">
+      <div class="section-head">
+        <h3>Performance — métriques clés</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Statistiques utiles en marketing par email :</p>
+
+        <ul>
+          <li><strong>Taux de livraison</strong> — emails parvenus jusqu'au serveur de messagerie des abonnés</li>
+          <li><strong>Taux d'ouverture</strong> — ratio (ouverts / reçus). Évalue l'efficacité de la <strong>ligne d'objet</strong></li>
+          <li><strong>Taux de clics (</strong><span class="term" data-def="CTR (Click-Through Rate) : pourcentage de personnes qui cliquent sur un lien dans un email après l'avoir reçu.">CTR</span><strong>)</strong> — pourcentage de personnes qui cliquent sur les liens. Évalue l'efficacité globale</li>
+          <li><strong>Taux de réactivité</strong> — clics totaux / emails ouverts. Vision plus réaliste de l'engagement</li>
+          <li><strong>Taux de conversion</strong> — destinataires / personnes qui concrétisent l'objectif</li>
+          <li><strong>Taux de rejet (</strong><span class="term" data-def="Bounce (rebond) : email qui n'a pas pu être délivré. Soft bounce = problème temporaire ; hard bounce = adresse définitivement invalide.">rebond</span><strong>)</strong> — pourcentage non remis. <strong>Deux types :</strong>
+            <ul>
+              <li><strong>Soft bounces</strong> (rejets temporaires) — boîte pleine, taille max serveur</li>
+              <li><strong>Hard bounces</strong> (rejets permanents) — emails bloqués ou adresse incorrecte. Permet d'<strong>identifier les adresses à supprimer</strong></li>
+            </ul>
+          </li>
+          <li><strong>Taux de désinscription</strong> — destinataires qui ont cliqué sur le lien de désinscription</li>
+        </ul>
+
+        <div class="keypoint">
+          <ul>
+            <li>Opt-in obligatoire (RGPD), achat de listes interdit en UE</li>
+            <li>Objet : court (&lt;10 mots), évite "gratuit/€/!"</li>
+            <li>Contenu : paragraphes courts, 1 idée, CTA clair</li>
+            <li>Métriques : ouverture, CTR, réactivité, conversion, bounces</li>
+            <li>Test A/B systématique pour optimiser</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ chapitre 6 -->
+    <div class="quiz" data-quiz="6">
+      <div class="quiz-header">
+        <span class="icon">QUIZ</span>
+        <h4>Mini-quiz · Marketing Mail</h4>
+        <span class="sub">3 questions</span>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Le double opt-in, c'est :</div>
+        <div class="quiz-options">
+          <button data-correct="false">Une option pour s'inscrire à deux newsletters en même temps</button>
+          <button data-correct="true">Une double confirmation d'inscription via un mail de validation</button>
+          <button data-correct="false">Un système de double désinscription</button>
+        </div>
+        <div class="quiz-feedback">✓ Le double opt-in garantit le consentement réel.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Lequel de ces mots est-il déconseillé dans l'objet d'un email marketing ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">"Nouveau"</button>
+          <button data-correct="true">"Gratuit"</button>
+          <button data-correct="false">"Découvrir"</button>
+        </div>
+        <div class="quiz-feedback">✓ "Gratuit", "remise", "promo" et le € déclenchent les filtres anti-spam.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Un "hard bounce" est :</div>
+        <div class="quiz-options">
+          <button data-correct="false">Un email ouvert puis fermé immédiatement</button>
+          <button data-correct="true">Un rejet permanent — adresse invalide ou bloquée, à supprimer</button>
+          <button data-correct="false">Un retour utilisateur négatif</button>
+        </div>
+        <div class="quiz-feedback">✓ Hard bounce = adresse à virer de la liste. Soft bounce = boîte pleine ou serveur indispo.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============================================
+       CHAPITRE 7 — Droit à l'oubli
+       ============================================ -->
+  <article class="chapter" id="ch7">
+    <header class="chapter-header">
+      <div class="num">07 / 07</div>
+      <h2>Droit à l'oubli</h2>
+      <p class="summary">
+        Comment limiter (sans jamais totalement effacer) sa trace numérique : RGPD, CNIL,
+        curing, déréférencement, outils et démarches concrètes.
+      </p>
+      <div class="key-terms">
+        <span class="pill">Curing</span>
+        <span class="pill">RGPD / GDPR</span>
+        <span class="pill">CNIL</span>
+        <span class="pill">Déréférencement</span>
+        <span class="pill">Web profond</span>
+        <span class="pill">Web surfacique</span>
+      </div>
+    </header>
+
+    <section class="section-block" id="ch7-intro">
+      <div class="section-head">
+        <h3>Disparaître d'internet ?</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Vouloir disparaître des inter-réseaux peut sembler tentant. Mais à part renoncer à toute forme de vie sociétale, il est <strong>totalement impossible de disparaître</strong> des inter-réseaux.</p>
+
+        <p>La question légitime : <strong>quels usages sont indispensables, quels usages sont facultatifs ?</strong></p>
+
+        <p>On parle de <span class="term" data-def="Curing : suppression des traces liées à une identité numérique sur l'usage d'applicatifs non obligatoires. Repose sur le droit à l'oubli (RGPD).">curing</span> = suppression du contenu gênant en recourant au <strong>droit à l'oubli</strong>.</p>
+
+        <p>Aujourd'hui facilité par :</p>
+        <ul>
+          <li>La <span class="term" data-def="RGPD (Règlement Général sur la Protection des Données) / GDPR : règlement européen 2018 qui encadre la collecte et le traitement des données personnelles.">RGPD</span> (GDPR)</li>
+          <li>Des organismes comme la <span class="term" data-def="CNIL (Commission Nationale de l'Informatique et des Libertés) : autorité française qui veille à l'application de la RGPD et accompagne les particuliers et entreprises.">CNIL</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch7-rgpd">
+      <div class="section-head">
+        <h3>Rappel : Droit à l'oubli</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Selon Wikipédia : le droit à l'oubli est un concept de l'Union européenne. Il permet à un individu de demander le <strong>retrait sur le web</strong> d'informations qui pourraient lui nuire.</p>
+
+        <p>Deux applications :</p>
+        <ul>
+          <li><strong>Droit à l'effacement</strong> — retrait sur le site d'origine</li>
+          <li><strong>Droit au </strong><span class="term" data-def="Déréférencement : suppression d'un site/contenu des index des moteurs de recherche, sans toucher à la source. Le contenu existe toujours mais n'est plus trouvable via Google.">déréférencement</span> — suppression dans les moteurs (sans toucher à la source)</li>
+        </ul>
+
+        <div class="callout aide">
+          <span class="label">→ À noter</span>
+          Le droit à l'oubli fait partie des <strong>directives RGPD</strong>.
+        </div>
+
+        <p>Il intervient pour un individu concerné par un contenu sur internet qui souhaite demander le retrait. Idem pour les réseaux sociaux (censure ou retrait définitif).</p>
+
+        <div class="callout note">
+          <span class="label">⚠ Limites</span>
+          On <strong>ne peut pas tout supprimer</strong>. La RGPD : <em>sous réserve de certaines conditions, et notamment de l'intérêt du public à avoir accès à l'information</em>.
+        </div>
+
+        <p>Google précise : il établit un équilibre entre <strong>vie privée</strong> et <strong>intérêt du grand public</strong>. Refus possible pour : escroqueries financières, fautes professionnelles, condamnations criminelles, conduite publique des fonctionnaires.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch7-rech">
+      <div class="section-head">
+        <h3>Rechercher ses traces</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Identifier et lister les plateformes détentrices d'information sur l'identité numérique.</p>
+
+        <ol>
+          <li>Lister les <strong>éléments déclaratifs</strong> connus — toutes les plateformes où tu as mis volontairement de l'info</li>
+          <li>Identifier les <strong>dépendances</strong> — comptes liés, connexions sociales (les "Se connecter avec...")</li>
+          <li>Parcourir les <strong>logiciels d'aide à la navigation</strong> — les navigateurs gardent des infos même après suppression locale</li>
+          <li>Parcourir les <strong>profondeurs du Web</strong> :
+            <ul>
+              <li>Moteurs (Google, Yahoo, Bing), professionnels (societe.com, dnb.com), personnels (Webmii, namechk), archives (Web.archive)</li>
+              <li><span class="term" data-def="Web surfacique : la partie du web indexée par les moteurs de recherche classiques. Accessible directement.">Web surfacique</span> par accès direct</li>
+              <li>Proxy publics/privés : LinkedIn, Twitter, Facebook, Instagram, Pinterest…</li>
+              <li><span class="term" data-def="Web profond (deep web) : partie du web non indexée par les moteurs classiques (bases de données, contenus protégés par mot de passe, intranets…). Ne pas confondre avec le dark web.">Web profond</span> par accès indirects</li>
+            </ul>
+          </li>
+        </ol>
+
+        <div class="callout attention">
+          <span class="label">⚠ Approche biaisée</span>
+          Le profilage du compte utilisé pour faire la liste <strong>censure</strong> les résultats. Les informations <strong>rayonnent</strong> par leur propagation.
+        </div>
+
+        <p><strong>Outils utiles :</strong></p>
+        <ul>
+          <li>E-réputation : social-searcher.com, brandyourself.com</li>
+          <li>SEM (vu dans le cours)</li>
+          <li>Analyseurs de traces : haveibeenpwned.com, pipl.com, stalkface.com</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch7-agir">
+      <div class="section-head">
+        <h3>Agir</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Avant les mesures irrévocables, <strong>sauvegarder</strong> ce qu'on souhaite conserver !</p>
+
+        <p>Une fois la liste prête :</p>
+        <ul>
+          <li><strong>Supprimer entièrement</strong> les comptes</li>
+          <li>Au pire : <strong>effacer un maximum</strong>, changer pseudos/infos par des données fictives, <strong>verrouiller le compte récalcitrant</strong></li>
+          <li><strong>Désactiver la collecte</strong> de données</li>
+          <li><strong>Supprimer les données logicielles</strong></li>
+          <li>Effectuer sur <strong>tous les supports</strong> (PC, téléphone, tablette, TV, IoT…)</li>
+        </ul>
+
+        <div class="callout attention">
+          <span class="label">⚠ Délai de grâce</span>
+          On dispose généralement d'un délai pour <strong>changer d'avis</strong>. La suppression réelle peut prendre <strong>jusqu'à 90 jours</strong>.
+        </div>
+
+        <p><strong>Outils & services qui aident :</strong></p>
+        <ul>
+          <li><strong>Projets publics</strong> qui répertorient les démarches : justdelete.me, justdeleteaccount.com</li>
+          <li><strong>Services d'accompagnement</strong> (payants) : Accountkiller.com, Semji.com</li>
+          <li><strong>unroll.me</strong> — liste les abonnements automatiquement (mais hors UE pour cause RGPD)</li>
+        </ul>
+
+        <p>La suppression pure et simple <strong>ne détruira pas immédiatement</strong> toutes les données ou résultats. Mais avec le temps, elle les rend <strong>moins susceptibles d'apparaître</strong>.</p>
+      </div>
+    </section>
+
+    <section class="section-block" id="ch7-test">
+      <div class="section-head">
+        <h3>Tester</h3>
+        <span class="toggle-hint">cliquer pour replier</span>
+      </div>
+      <div class="section-body">
+        <p>Important de tester la <strong>persistance des données</strong> plusieurs jours plus tard pour constater la <strong>disparition progressive</strong>. On réeffectue les étapes de recherche préalablement mises en œuvre.</p>
+
+        <div class="keypoint">
+          <ul>
+            <li>Disparaître totalement = impossible. Curing = limiter ses traces</li>
+            <li>RGPD encadre, CNIL accompagne</li>
+            <li>Effacement (source) ≠ Déréférencement (moteur de recherche)</li>
+            <li>Workflow : Rechercher → Sauvegarder → Agir → Tester</li>
+            <li>Délai de grâce ≈ 90 jours avant suppression effective</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ chapitre 7 -->
+    <div class="quiz" data-quiz="7">
+      <div class="quiz-header">
+        <span class="icon">QUIZ</span>
+        <h4>Mini-quiz · Droit à l'oubli</h4>
+        <span class="sub">3 questions</span>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Le "curing" en présence en ligne désigne :</div>
+        <div class="quiz-options">
+          <button data-correct="false">L'analyse approfondie d'une e-réputation</button>
+          <button data-correct="true">La suppression des traces liées à une identité numérique sur les services facultatifs</button>
+          <button data-correct="false">Le ciblage publicitaire personnalisé</button>
+        </div>
+        <div class="quiz-feedback">✓ Curing = nettoyer ses traces via le droit à l'oubli.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Quelle est la différence entre droit à l'effacement et droit au déréférencement ?</div>
+        <div class="quiz-options">
+          <button data-correct="true">Effacement = retrait à la source ; déréférencement = suppression dans les moteurs</button>
+          <button data-correct="false">L'effacement est immédiat, le déréférencement prend 90 jours</button>
+          <button data-correct="false">Aucune différence, c'est le même droit</button>
+        </div>
+        <div class="quiz-feedback">✓ Le déréférencement laisse le contenu en ligne mais le rend introuvable via Google &amp; co.</div>
+      </div>
+
+      <div class="quiz-question">
+        <div class="q">Combien de temps faut-il en moyenne pour que la suppression d'un compte soit effective ?</div>
+        <div class="quiz-options">
+          <button data-correct="false">Immédiatement</button>
+          <button data-correct="false">7 jours</button>
+          <button data-correct="true">Jusqu'à 90 jours (délai de grâce)</button>
+        </div>
+        <div class="quiz-feedback">✓ Délai pour permettre à l'utilisateur de changer d'avis.</div>
+      </div>
+    </div>
+  </article>
+
+  </div><!-- /.reading-area -->
+
+  <footer class="site-footer">
+    <p><span class="accent">// fin du cours</span></p>
+    <p>Cours · Présence en ligne · Bloc 5 · 7 chapitres</p>
+    <p style="margin-top: 14px;">
+      <span class="accent">↑</span> Reviens en haut · <span class="accent">/</span> Recherche · <span class="accent">←/→</span> Chapitres
+    </p>
+  </footer>
+
+</main>
+
+<button id="back-top" aria-label="Retour en haut" title="Retour en haut">↑</button>
+
+<script>
+  // ============================================
+  // PROGRESS BAR & SCROLL TRACKING
+  // ============================================
+  const progressBar = document.getElementById('progress-bar');
+  const backTop = document.getElementById('back-top');
+  const tocLinks = document.querySelectorAll('nav.toc > ol > li > a');
+  const subLinks = document.querySelectorAll('nav.toc ul.subsections li a');
+  const chapters = document.querySelectorAll('article.chapter');
+  const sectionBlocks = document.querySelectorAll('section.section-block');
+
+  function updateProgress() {
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const scrolled = window.scrollY;
+    const progress = (scrolled / docHeight) * 100;
+    progressBar.style.width = progress + '%';
+
+    // Bouton back-top
+    if (scrolled > 400) backTop.classList.add('visible');
+    else backTop.classList.remove('visible');
+
+    // Sidebar : chapitre actif
+    let activeChapter = null;
+    chapters.forEach(ch => {
+      const rect = ch.getBoundingClientRect();
+      if (rect.top <= 120 && rect.bottom >= 120) {
+        activeChapter = ch.id;
+      }
+    });
+    tocLinks.forEach(link => {
+      const target = link.getAttribute('href').substring(1);
+      const li = link.parentElement;
+      if (target === activeChapter) {
+        link.classList.add('active');
+        li.classList.add('expanded');
+      } else {
+        link.classList.remove('active');
+        li.classList.remove('expanded');
+      }
+    });
+
+    // Sub-section active
+    let activeSection = null;
+    sectionBlocks.forEach(s => {
+      const rect = s.getBoundingClientRect();
+      if (rect.top <= 200 && rect.bottom >= 200) {
+        activeSection = s.id;
+      }
+    });
+    subLinks.forEach(link => {
+      const target = link.getAttribute('href').substring(1);
+      if (target === activeSection) link.classList.add('active');
+      else link.classList.remove('active');
+    });
+  }
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  // ============================================
+  // BACK TO TOP
+  // ============================================
+  backTop.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // ============================================
+  // SECTION COLLAPSE/EXPAND
+  // ============================================
+  document.querySelectorAll('.section-head').forEach(head => {
+    head.addEventListener('click', (e) => {
+      // Ne pas replier si clic sur lien interne
+      if (e.target.tagName === 'A') return;
+      head.parentElement.classList.toggle('collapsed');
+    });
+  });
+
+  // Raccourci clavier "C" pour replier/déplier toutes les sections du chapitre actif
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'c' || e.key === 'C') {
+      const activeId = Array.from(chapters).find(ch => {
+        const r = ch.getBoundingClientRect();
+        return r.top <= 200 && r.bottom >= 200;
+      });
+      if (activeId) {
+        const blocks = activeId.querySelectorAll('section.section-block');
+        const allCollapsed = Array.from(blocks).every(b => b.classList.contains('collapsed'));
+        blocks.forEach(b => b.classList.toggle('collapsed', !allCollapsed));
+      }
+    }
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault();
+      document.getElementById('search').focus();
+    }
+  });
+
+  // ============================================
+  // QUIZ — gestion des réponses
+  // ============================================
+  document.querySelectorAll('.quiz-question').forEach(q => {
+    const buttons = q.querySelectorAll('.quiz-options button');
+    const feedback = q.querySelector('.quiz-feedback');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const isCorrect = btn.dataset.correct === 'true';
+        // Bloquer toutes les options
+        buttons.forEach(b => {
+          b.disabled = true;
+          if (b.dataset.correct === 'true') b.classList.add('correct');
+          else if (b === btn) b.classList.add('wrong');
+        });
+        feedback.classList.add('show');
+      });
+    });
+  });
+
+  // ============================================
+  // RECHERCHE
+  // ============================================
+  const searchInput = document.getElementById('search');
+  let searchTimeout;
+  searchInput.addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      const term = e.target.value.trim().toLowerCase();
+      // Reset des highlights
+      document.querySelectorAll('.search-hit').forEach(el => {
+        const parent = el.parentNode;
+        parent.replaceChild(document.createTextNode(el.textContent), el);
+        parent.normalize();
+      });
+      sectionBlocks.forEach(s => s.classList.remove('search-hidden'));
+      chapters.forEach(c => c.classList.remove('search-hidden'));
+
+      if (term.length < 2) return;
+
+      // Filtrage par chapitre
+      chapters.forEach(ch => {
+        const txt = ch.textContent.toLowerCase();
+        if (!txt.includes(term)) ch.classList.add('search-hidden');
+      });
+
+      // Highlight basique dans les sections-body
+      document.querySelectorAll('.section-body').forEach(body => {
+        highlightText(body, term);
+      });
+    }, 200);
+  });
+
+  function highlightText(node, term) {
+    if (node.nodeType === 3) { // text node
+      const idx = node.textContent.toLowerCase().indexOf(term);
+      if (idx >= 0) {
+        const span = document.createElement('span');
+        span.className = 'search-hit';
+        const before = node.textContent.substring(0, idx);
+        const match = node.textContent.substring(idx, idx + term.length);
+        const after = node.textContent.substring(idx + term.length);
+        const fragment = document.createDocumentFragment();
+        fragment.appendChild(document.createTextNode(before));
+        span.textContent = match;
+        fragment.appendChild(span);
+        fragment.appendChild(document.createTextNode(after));
+        node.parentNode.replaceChild(fragment, node);
+      }
+    } else if (node.nodeType === 1 && node.childNodes && !['SCRIPT','STYLE'].includes(node.tagName)) {
+      Array.from(node.childNodes).forEach(child => highlightText(child, term));
+    }
+  }
+
+  // ============================================
+  // FERMER LA SIDEBAR MOBILE APRÈS CLIC
+  // ============================================
+  document.querySelectorAll('aside.sidebar a').forEach(a => {
+    a.addEventListener('click', () => {
+      if (window.innerWidth <= 1100) {
+        document.querySelector('aside.sidebar').classList.remove('open');
+      }
+    });
+  });
+
+  // ============================================
+  // NAVIGATION CLAVIER ENTRE CHAPITRES (← / →)
+  // ============================================
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const ids = Array.from(chapters).map(c => c.id);
+    let currentIdx = 0;
+    chapters.forEach((c, i) => {
+      const r = c.getBoundingClientRect();
+      if (r.top <= 200 && r.bottom >= 200) currentIdx = i;
+    });
+    const nextIdx = e.key === 'ArrowRight'
+      ? Math.min(currentIdx + 1, ids.length - 1)
+      : Math.max(currentIdx - 1, 0);
+    if (nextIdx !== currentIdx) {
+      document.getElementById(ids[nextIdx]).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+</script>
+
+</body>
+</html>
